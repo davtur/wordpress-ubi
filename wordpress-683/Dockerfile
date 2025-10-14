@@ -5,7 +5,7 @@ LABEL maintainer="David Turner" \
 
 USER root
   # Copy entitlement certificates (handled by OpenShift secrets)
-  COPY /tmp/entitlement/* /etc/pki/entitlement/
+COPY entitlement/* /etc/pki/entitlement/
 
   # Enable UBI 9 repositories and install dependencies
   # Install additional PHP extensions required for WordPress
