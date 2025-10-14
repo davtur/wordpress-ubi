@@ -36,7 +36,6 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
         echo '# LoadModule mpm_worker_module modules/mod_mpm_worker.so'; \
         echo '# LoadModule heartmonitor_module modules/mod_heartmonitor.so'; \
         echo 'LoadModule mpm_prefork_module modules/mod_mpm_prefork.so'; \
-        echo 'LoadModule php_module modules/libphp.so'; \
         echo 'ServerName localhost'; \
         echo 'Listen 8080'; \
         echo 'Listen 8443 https'; \
@@ -49,8 +48,8 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
         echo '    </Directory>'; \
         echo '</VirtualHost>'; \
     } >> /etc/httpd/conf/httpd.conf && \
-    # Clear default conf.d files to avoid conflicts
-    rm -f /etc/httpd/conf.d/*.conf && \
+    # Clear default conf.d files except php.conf to avoid conflicts
+    find /etc/httpd/conf.d/ -type f -not -name 'php.conf' -delete && \
     # Create HTTPS VirtualHost configuration
     { \
         echo 'SSLSessionCache shmcb:/run/httpd/sslcache(512000)'; \
@@ -65,8 +64,10 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
         echo '        Require all granted'; \
         echo '    </Directory>'; \
         echo '</VirtualHost>'; \
-    } >> /etc/httpd/conf.d/ssl.conf
-
+    } >> /etc/httpd/conf.d/ssl.conf && \
+    # Disable mod_heartmonitor to suppress warning
+    sed -i '/LoadModule heartmonitor_module/d' /etc/httpd/conf.modules.d/*.conf
+    
 # Recommended opcache settings for WordPress
 RUN { \
         echo 'opcache.memory_consumption=128'; \
