@@ -15,12 +15,18 @@ RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
           dnf clean all && \
           rm -rf /var/cache/dnf
 
-# Configure Apache for HTTPS on 8443 (non-privileged port for OpenShift)
-# Append to httpd.conf for Listen, and create ssl.conf for VirtualHost
-RUN { \
+# Configure Apache for HTTPS on 8443
+RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private && \
+    chown 1001:0 /etc/pki/tls/certs /etc/pki/tls/private && \
+    chmod 755 /etc/pki/tls/certs && \
+    chmod 700 /etc/pki/tls/private && \
+    { \
         echo 'Listen 8080'; \
         echo 'Listen 8443 https'; \
     } >> /etc/httpd/conf/httpd.conf && \
+    # Override default SSL cert paths to dummies or customs, then add your VH \
+    sed -i 's|^SSLCertificateFile.*|SSLCertificateFile /etc/pki/tls/certs/server.crt|' /etc/httpd/conf.d/ssl.conf && \
+    sed -i 's|^SSLCertificateKeyFile.*|SSLCertificateKeyFile /etc/pki/tls/private/server.key|' /etc/httpd/conf.d/ssl.conf && \
     { \
         echo '<VirtualHost *:8443>'; \
         echo '    SSLEngine on'; \
@@ -32,7 +38,7 @@ RUN { \
         echo '        Require all granted'; \
         echo '    </Directory>'; \
         echo '</VirtualHost>'; \
-    } > /etc/httpd/conf.d/ssl.conf
+    } >> /etc/httpd/conf.d/ssl.conf
 
 # Recommended opcache settings for WordPress
 RUN { \
