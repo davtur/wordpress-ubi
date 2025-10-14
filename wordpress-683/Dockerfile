@@ -23,6 +23,7 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private && \
     { \
         echo 'Listen 8080'; \
         echo 'Listen 8443 https'; \
+        echo 'ServerName localhost'; \
     } >> /etc/httpd/conf/httpd.conf && \
     # Override default SSL cert paths to dummies or customs, then add your VH \
     sed -i 's|^SSLCertificateFile.*|SSLCertificateFile /etc/pki/tls/certs/server.crt|' /etc/httpd/conf.d/ssl.conf && \
