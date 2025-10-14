@@ -6,12 +6,11 @@ LABEL maintainer="David Turner" \
 USER root
 
 # Enable UBI 9 repositories and install dependencies
-# Install additional PHP extensions required for WordPress and mod_ssl for HTTPS
 RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
           --enablerepo=ubi-9-appstream-rpms \
           --enablerepo=ubi-9-codeready-builder-rpms \
           --setopt=install_weak_deps=0 php-gd php-mbstring php-intl \
-          php-pecl-zip php-bcmath php-mysqlnd php-xml php-process mod_ssl && \
+          php-pecl-zip php-bcmath php-mysqlnd php-xml php-process mod_ssl openssl && \
           dnf clean all && \
           rm -rf /var/cache/dnf
 
@@ -20,6 +19,14 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
     chown 1001:0 /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
     chmod 755 /etc/pki/tls/certs /var/log/httpd && \
     chmod 750 /etc/pki/tls/private && \
+    # Generate self-signed SSL certificates for testing
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout /etc/pki/tls/private/server.key \
+        -out /etc/pki/tls/certs/server.crt \
+        -subj "/CN=localhost" && \
+    chown 1001:0 /etc/pki/tls/certs/server.crt /etc/pki/tls/private/server.key && \
+    chmod 644 /etc/pki/tls/certs/server.crt && \
+    chmod 640 /etc/pki/tls/private/server.key && \
     # Clear default httpd.conf to avoid duplicate Listen directives
     echo "" > /etc/httpd/conf/httpd.conf && \
     # Add only the required Listen and ServerName directives
@@ -30,10 +37,8 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
         echo 'Include conf.d/*.conf'; \
     } >> /etc/httpd/conf/httpd.conf && \
     # Clear default conf.d files to avoid conflicts
-    rm -f /etc/httpd/conf.d/*.conf && \    
-    # Override default SSL cert paths to dummies or customs, then add your VH \
-    sed -i 's|^SSLCertificateFile.*|SSLCertificateFile /etc/pki/tls/certs/server.crt|' /etc/httpd/conf.d/ssl.conf && \
-    sed -i 's|^SSLCertificateKeyFile.*|SSLCertificateKeyFile /etc/pki/tls/private/server.key|' /etc/httpd/conf.d/ssl.conf && \
+    rm -f /etc/httpd/conf.d/*.conf && \
+    # Create SSL VirtualHost configuration
     { \
         echo '<VirtualHost *:8443>'; \
         echo '    SSLEngine on'; \
@@ -56,11 +61,9 @@ RUN { \
     } > /etc/php.d/opcache-recommended.ini
 
 ENV WORDPRESS_VERSION=6.8.3 \
-    WORDPRESS_SHA1=fd56bcdc15f1877e45dce67942ea75949ed650e8 
-# Update to exact SHA1 for your version if needed
-# get the sha1 for tar.gz from https://wordpress.org/download/releases/
+    WORDPRESS_SHA1=fd56bcdc15f1877e45dce67942ea75949ed650e8
 
-# Download and verify WordPress, stage in /opt/app-root/src/wordpress-src
+# Download and verify WordPress
 RUN set -eux; \
     curl -o /tmp/wordpress.tar.gz -fSL "https://wordpress.org/wordpress-${WORDPRESS_VERSION}.tar.gz"; \
     echo "${WORDPRESS_SHA1} */tmp/wordpress.tar.gz" | sha1sum -c -; \
@@ -71,17 +74,19 @@ RUN set -eux; \
     mkdir -p /opt/app-root/src/wordpress-src/wp-content/upgrades; \
     chown -R 1001:0 /opt/app-root/src/wordpress-src/wp-content/upgrades
 
-# Copy entrypoint and config template (adapt paths for UBI)
+# Copy entrypoint and config template
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY wp-config-docker.php /opt/app-root/src/wordpress-src/wp-config-docker.php
 
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh && \
-    chown 1001:0 /usr/local/bin/docker-entrypoint.sh /opt/app-root/src/wordpress-src/wp-config-docker.php
+    chown 1001:0 /usr/local/bin/docker-entrypoint.sh /opt/app-root/src/wordpress-src/wp-config-docker.php && \
+    chown -R 1001:0 /var/log/httpd && \
+    chmod -R 775 /var/log/httpd
 
 # Web root volume for persistence
 VOLUME /opt/app-root/src
 
-# OpenShift-compatible non-root user and ports (expose both HTTP and HTTPS)
+# OpenShift-compatible non-root user and ports
 USER 1001
 EXPOSE 8080 8443
 
