@@ -30,7 +30,8 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
         echo 'Include conf.d/*.conf'; \
     } >> /etc/httpd/conf/httpd.conf && \
     # Clear default conf.d files to avoid conflicts
-    rm -f /etc/httpd/conf.d/*.conf && \    # Override default SSL cert paths to dummies or customs, then add your VH \
+    rm -f /etc/httpd/conf.d/*.conf && \    
+    # Override default SSL cert paths to dummies or customs, then add your VH \
     sed -i 's|^SSLCertificateFile.*|SSLCertificateFile /etc/pki/tls/certs/server.crt|' /etc/httpd/conf.d/ssl.conf && \
     sed -i 's|^SSLCertificateKeyFile.*|SSLCertificateKeyFile /etc/pki/tls/private/server.key|' /etc/httpd/conf.d/ssl.conf && \
     { \
