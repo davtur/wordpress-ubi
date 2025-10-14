@@ -27,14 +27,13 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
     chown 1001:0 /etc/pki/tls/certs/server.crt /etc/pki/tls/private/server.key && \
     chmod 644 /etc/pki/tls/certs/server.crt && \
     chmod 640 /etc/pki/tls/private/server.key && \
-    # Clear default httpd.conf to avoid duplicate Listen directives
-    echo "" > /etc/httpd/conf/httpd.conf && \
-    # Add only the required Listen and ServerName directives
+    # Remove default Listen directives to avoid conflicts
+    sed -i '/^Listen /d' /etc/httpd/conf/httpd.conf && \
+    # Add custom ServerName and Listen directives
     { \
         echo 'ServerName localhost'; \
         echo 'Listen 8080'; \
         echo 'Listen 8443 https'; \
-        echo 'Include conf.d/*.conf'; \
     } >> /etc/httpd/conf/httpd.conf && \
     # Clear default conf.d files to avoid conflicts
     rm -f /etc/httpd/conf.d/*.conf && \
@@ -51,7 +50,7 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
         echo '    </Directory>'; \
         echo '</VirtualHost>'; \
     } >> /etc/httpd/conf.d/ssl.conf
-
+    
 # Recommended opcache settings for WordPress
 RUN { \
         echo 'opcache.memory_consumption=128'; \
