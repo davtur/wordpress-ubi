@@ -44,6 +44,8 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
         echo 'LoadModule rewrite_module modules/mod_rewrite.so'; \
         echo 'LoadModule setenvif_module modules/mod_setenvif.so'; \
         echo 'LoadModule ssl_module modules/mod_ssl.so'; \
+        echo 'LoadModule socache_shmcb_module modules/mod_socache_shmcb.so'; \
+        echo 'LoadModule unixd_module modules/mod_unixd.so'; \
         echo 'ServerName localhost'; \
         echo 'Listen 8080'; \
         echo 'Listen 8443 https'; \
