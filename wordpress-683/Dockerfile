@@ -19,7 +19,7 @@ RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
 RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private && \
     chown 1001:0 /etc/pki/tls/certs /etc/pki/tls/private && \
     chmod 755 /etc/pki/tls/certs && \
-    chmod 700 /etc/pki/tls/private && \
+    chmod 750 /etc/pki/tls/private && \
     { \
         echo 'Listen 8080'; \
         echo 'Listen 8443 https'; \
