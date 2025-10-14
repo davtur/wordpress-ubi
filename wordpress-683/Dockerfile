@@ -15,17 +15,22 @@ RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
           dnf clean all && \
           rm -rf /var/cache/dnf
 
-# Configure Apache for HTTPS on 8443
-RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private && \
-    chown 1001:0 /etc/pki/tls/certs /etc/pki/tls/private && \
-    chmod 755 /etc/pki/tls/certs && \
+# Configure Apache for HTTPS on 8443 and set ServerName
+RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
+    chown 1001:0 /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
+    chmod 755 /etc/pki/tls/certs /var/log/httpd && \
     chmod 750 /etc/pki/tls/private && \
+    # Clear default httpd.conf to avoid duplicate Listen directives
+    echo "" > /etc/httpd/conf/httpd.conf && \
+    # Add only the required Listen and ServerName directives
     { \
+        echo 'ServerName localhost'; \
         echo 'Listen 8080'; \
         echo 'Listen 8443 https'; \
-        echo 'ServerName localhost'; \
+        echo 'Include conf.d/*.conf'; \
     } >> /etc/httpd/conf/httpd.conf && \
-    # Override default SSL cert paths to dummies or customs, then add your VH \
+    # Clear default conf.d files to avoid conflicts
+    rm -f /etc/httpd/conf.d/*.conf && \    # Override default SSL cert paths to dummies or customs, then add your VH \
     sed -i 's|^SSLCertificateFile.*|SSLCertificateFile /etc/pki/tls/certs/server.crt|' /etc/httpd/conf.d/ssl.conf && \
     sed -i 's|^SSLCertificateKeyFile.*|SSLCertificateKeyFile /etc/pki/tls/private/server.key|' /etc/httpd/conf.d/ssl.conf && \
     { \
