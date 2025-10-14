@@ -14,7 +14,7 @@ RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
           dnf clean all && \
           rm -rf /var/cache/dnf
 
-# Configure Apache for HTTPS on 8443 and set ServerName
+# Configure Apache for HTTPS on 8443 and HTTP on 8080, set ServerName
 RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
     chown 1001:0 /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
     chmod 755 /etc/pki/tls/certs /var/log/httpd && \
@@ -27,30 +27,46 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
     chown 1001:0 /etc/pki/tls/certs/server.crt /etc/pki/tls/private/server.key && \
     chmod 644 /etc/pki/tls/certs/server.crt && \
     chmod 640 /etc/pki/tls/private/server.key && \
-    # Remove default Listen directives to avoid conflicts
-    sed -i '/^Listen /d' /etc/httpd/conf/httpd.conf && \
-    # Add custom ServerName and Listen directives
+    # Clear default httpd.conf and add required directives
+    echo "" > /etc/httpd/conf/httpd.conf && \
+    # Add MPM, ServerName, Listen, and VirtualHost directives
     { \
+        echo '# Disable other MPMs to ensure prefork is used'; \
+        echo '# LoadModule mpm_event_module modules/mod_mpm_event.so'; \
+        echo '# LoadModule mpm_worker_module modules/mod_mpm_worker.so'; \
+        echo '# LoadModule heartmonitor_module modules/mod_heartmonitor.so'; \
+        echo 'LoadModule mpm_prefork_module modules/mod_mpm_prefork.so'; \
+        echo 'LoadModule php_module modules/libphp.so'; \
         echo 'ServerName localhost'; \
         echo 'Listen 8080'; \
         echo 'Listen 8443 https'; \
+        echo 'Include conf.d/*.conf'; \
+        echo '<VirtualHost *:8080>'; \
+        echo '    DocumentRoot "/opt/app-root/src/wordpress-src"'; \
+        echo '    <Directory "/opt/app-root/src/wordpress-src">'; \
+        echo '        AllowOverride All'; \
+        echo '        Require all granted'; \
+        echo '    </Directory>'; \
+        echo '</VirtualHost>'; \
     } >> /etc/httpd/conf/httpd.conf && \
     # Clear default conf.d files to avoid conflicts
     rm -f /etc/httpd/conf.d/*.conf && \
-    # Create SSL VirtualHost configuration
+    # Create HTTPS VirtualHost configuration
     { \
+        echo 'SSLSessionCache shmcb:/run/httpd/sslcache(512000)'; \
+        echo 'SSLSessionCacheTimeout 300'; \
         echo '<VirtualHost *:8443>'; \
         echo '    SSLEngine on'; \
         echo '    SSLCertificateFile /etc/pki/tls/certs/server.crt'; \
         echo '    SSLCertificateKeyFile /etc/pki/tls/private/server.key'; \
-        echo '    DocumentRoot "/opt/app-root/src"'; \
-        echo '    <Directory "/opt/app-root/src">'; \
+        echo '    DocumentRoot "/opt/app-root/src/wordpress-src"'; \
+        echo '    <Directory "/opt/app-root/src/wordpress-src">'; \
         echo '        AllowOverride All'; \
         echo '        Require all granted'; \
         echo '    </Directory>'; \
         echo '</VirtualHost>'; \
     } >> /etc/httpd/conf.d/ssl.conf
-    
+
 # Recommended opcache settings for WordPress
 RUN { \
         echo 'opcache.memory_consumption=128'; \
