@@ -4,8 +4,6 @@ LABEL maintainer="David Turner" \
       description="WordPress on UBI9 with PHP 8.3 and Apache for OpenShift"
 
 USER root
-  # Copy entitlement certificates (handled by OpenShift secrets)
-COPY entitlement/* /etc/pki/entitlement/
 
   # Enable UBI 9 repositories and install dependencies
   # Install additional PHP extensions required for WordPress
