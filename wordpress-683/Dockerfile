@@ -36,6 +36,13 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
         echo '# LoadModule mpm_worker_module modules/mod_mpm_worker.so'; \
         echo '# LoadModule heartmonitor_module modules/mod_heartmonitor.so'; \
         echo 'LoadModule mpm_prefork_module modules/mod_mpm_prefork.so'; \
+        echo 'LoadModule authz_core_module modules/mod_authz_core.so'; \
+        echo 'LoadModule mime_module modules/mod_mime.so'; \
+        echo 'LoadModule dir_module modules/mod_dir.so'; \
+        echo 'LoadModule proxy_module modules/mod_proxy.so'; \
+        echo 'LoadModule proxy_fcgi_module modules/mod_proxy_fcgi.so'; \
+        echo 'LoadModule rewrite_module modules/mod_rewrite.so'; \
+        echo 'LoadModule setenvif_module modules/mod_setenvif.so'; \
         echo 'ServerName localhost'; \
         echo 'Listen 8080'; \
         echo 'Listen 8443 https'; \
@@ -67,7 +74,7 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
     } >> /etc/httpd/conf.d/ssl.conf && \
     # Disable mod_heartmonitor to suppress warning
     sed -i '/LoadModule heartmonitor_module/d' /etc/httpd/conf.modules.d/*.conf
-    
+
 # Recommended opcache settings for WordPress
 RUN { \
         echo 'opcache.memory_consumption=128'; \
