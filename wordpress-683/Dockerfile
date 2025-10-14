@@ -5,14 +5,15 @@ LABEL maintainer="David Turner" \
 
 USER root
   # Copy entitlement certificates (handled by OpenShift secrets)
-  #COPY entitlement/* /etc/pki/entitlement/
+  COPY entitlement/* /etc/pki/entitlement/
 
   # Enable UBI 9 repositories and install dependencies
   # Install additional PHP extensions required for WordPress
-      RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
+RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
           --enablerepo=ubi-9-appstream-rpms \
           --enablerepo=ubi-9-codeready-builder-rpms \
-          --setopt=install_weak_deps=0 php-gd php-mbstring php-intl php-pecl-zip php-bcmath php-mysqlnd php-xml php-process && \
+          --setopt=install_weak_deps=0 php-gd php-mbstring php-intl \
+          php-pecl-zip php-bcmath php-mysqlnd php-xml php-process && \
           dnf clean all && \
           rm -rf /var/cache/dnf
 
