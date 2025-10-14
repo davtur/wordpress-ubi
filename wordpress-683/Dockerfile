@@ -5,15 +5,34 @@ LABEL maintainer="David Turner" \
 
 USER root
 
-  # Enable UBI 9 repositories and install dependencies
-  # Install additional PHP extensions required for WordPress
+# Enable UBI 9 repositories and install dependencies
+# Install additional PHP extensions required for WordPress and mod_ssl for HTTPS
 RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
           --enablerepo=ubi-9-appstream-rpms \
           --enablerepo=ubi-9-codeready-builder-rpms \
           --setopt=install_weak_deps=0 php-gd php-mbstring php-intl \
-          php-pecl-zip php-bcmath php-mysqlnd php-xml php-process && \
+          php-pecl-zip php-bcmath php-mysqlnd php-xml php-process mod_ssl && \
           dnf clean all && \
           rm -rf /var/cache/dnf
+
+# Configure Apache for HTTPS on 8443 (non-privileged port for OpenShift)
+# Append to httpd.conf for Listen, and create ssl.conf for VirtualHost
+RUN { \
+        echo 'Listen 8080'; \
+        echo 'Listen 8443 https'; \
+    } >> /etc/httpd/conf/httpd.conf && \
+    { \
+        echo '<VirtualHost *:8443>'; \
+        echo '    SSLEngine on'; \
+        echo '    SSLCertificateFile /etc/pki/tls/certs/server.crt'; \
+        echo '    SSLCertificateKeyFile /etc/pki/tls/private/server.key'; \
+        echo '    DocumentRoot "/opt/app-root/src"'; \
+        echo '    <Directory "/opt/app-root/src">'; \
+        echo '        AllowOverride All'; \
+        echo '        Require all granted'; \
+        echo '    </Directory>'; \
+        echo '</VirtualHost>'; \
+    } > /etc/httpd/conf.d/ssl.conf
 
 # Recommended opcache settings for WordPress
 RUN { \
@@ -49,9 +68,9 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh && \
 # Web root volume for persistence
 VOLUME /opt/app-root/src
 
-# OpenShift-compatible non-root user and port
+# OpenShift-compatible non-root user and ports (expose both HTTP and HTTPS)
 USER 1001
-EXPOSE 8080
+EXPOSE 8080 8443
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["/usr/sbin/httpd", "-DFOREGROUND"]
