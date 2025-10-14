@@ -47,6 +47,7 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
         echo 'Listen 8080'; \
         echo 'Listen 8443 https'; \
         echo 'Include conf.d/*.conf'; \
+        echo 'DirectoryIndex index.php index.html'; \
         echo '<VirtualHost *:8080>'; \
         echo '    DocumentRoot "/opt/app-root/src/wordpress-src"'; \
         echo '    <Directory "/opt/app-root/src/wordpress-src">'; \
