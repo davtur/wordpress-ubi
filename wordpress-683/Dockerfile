@@ -102,11 +102,11 @@ RUN set -eux; \
     chown -R 1001:0 /opt/app-root/src/wordpress-src/wp-content/upgrades
 
 # Copy entrypoint and config template
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY wp-config-docker.php /opt/app-root/src/wordpress-src/wp-config-docker.php
 
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh && \
-    chown 1001:0 /usr/local/bin/docker-entrypoint.sh /opt/app-root/src/wordpress-src/wp-config-docker.php && \
+RUN chmod +x /usr/local/bin/entrypoint.sh && \
+    chown 1001:0 /usr/local/bin/entrypoint.sh /opt/app-root/src/wordpress-src/wp-config-docker.php && \
     chown -R 1001:0 /var/log/httpd && \
     chmod -R 775 /var/log/httpd
 
