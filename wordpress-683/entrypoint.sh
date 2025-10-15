@@ -6,14 +6,14 @@ echo "[DEBUG] Starting entrypoint script at $(date)"
 
 # [DEBUG] Verify Apache binary exists
 if ! command -v /usr/sbin/httpd >/dev/null 2>&1; then
-	echo >&2 "[DEBUG] ERROR: /usr/sbin/httpd not found"
-	exit 1
+    echo >&2 "[DEBUG] ERROR: /usr/sbin/httpd not found"
+    exit 1
 fi
 
 # [DEBUG] Verify WP-CLI exists
 if ! command -v /usr/local/bin/wp >/dev/null 2>&1; then
-	echo >&2 "[DEBUG] ERROR: WP-CLI (/usr/local/bin/wp) not found"
-	exit 1
+    echo >&2 "[DEBUG] ERROR: WP-CLI (/usr/local/bin/wp) not found"
+    exit 1
 fi
 
 # Default env vars (matching Bitnami style)
@@ -47,7 +47,7 @@ echo "[DEBUG] WORDPRESS_SKIP_INSTALL=$WORDPRESS_SKIP_INSTALL"
 
 # [DEBUG] Validate critical env vars
 if [ -z "$WORDPRESS_DB_PASSWORD" ]; then
-	echo >&2 "[DEBUG] WARNING: WORDPRESS_DB_PASSWORD is empty"
+    echo >&2 "[DEBUG] WARNING: WORDPRESS_DB_PASSWORD is empty"
 fi
 
 cd /opt/app-root/src/wordpress-src/
@@ -55,96 +55,127 @@ echo "[DEBUG] Changed to directory: $PWD"
 
 # Function to wait for database
 wait_for_db() {
-	local max_attempts=30
-	local attempt=1
-	echo "[DEBUG] Waiting for database connection (host: $WORDPRESS_DB_HOST:3306)"
-	while ! /usr/local/bin/wp db query "SELECT 1" --skip-column-names --silent >/dev/null 2>&1; do
-		if [ $attempt -eq $max_attempts ]; then
-			echo >&2 "[DEBUG] ERROR: Database connection failed after $max_attempts attempts"
-			echo >&2 "[DEBUG] Attempted host: $WORDPRESS_DB_HOST:3306, user: $WORDPRESS_DB_USER"
-			exit 1
-		fi
-		echo >&2 "[DEBUG] Waiting for database... (attempt $attempt/$max_attempts)"
-		sleep 5
-		((attempt++))
-	done
-	echo "[DEBUG] Database connection established"
+    local max_attempts=30
+    local attempt=1
+    echo "[DEBUG] Waiting for database connection (host: $WORDPRESS_DB_HOST:3306)"
+    while ! /usr/local/bin/wp db query "SELECT 1" --skip-column-names --silent >/dev/null 2>&1; do
+        if [ $attempt -eq $max_attempts ]; then
+            echo >&2 "[DEBUG] ERROR: Database connection failed after $max_attempts attempts"
+            echo >&2 "[DEBUG] Attempted host: $WORDPRESS_DB_HOST:3306, user: $WORDPRESS_DB_USER"
+            exit 1
+        fi
+        echo >&2 "[DEBUG] Waiting for database... (attempt $attempt/$max_attempts)"
+        sleep 5
+        ((attempt++))
+    done
+    echo "[DEBUG] Database connection established"
 }
 
 # [DEBUG] Directory listing
 echo "[DEBUG] Current directory contents:"
 ls -al
 
+# [DEBUG] Handle backup file if present
+if [ -f wordpress-backup.tar ]; then
+    echo "[DEBUG] Extracting WordPress backup..."
+    tar -xf wordpress-backup.tar -C /opt/app-root/src/wordpress-src
+    if [ $? -eq 0 ]; then
+        echo "[DEBUG] Backup extracted successfully"
+        rm wordpress-backup.tar
+        echo "[DEBUG] Removed backup file to save space"
+    else
+        echo >&2 "[DEBUG] ERROR: Failed to extract backup file"
+        exit 1
+    fi
+    # Fix permissions after extraction
+    chown -R 1001:0 /opt/app-root/src/wordpress-src/
+    find /opt/app-root/src/wordpress-src/ -type d -exec chmod 755 {} +
+    find /opt/app-root/src/wordpress-src/ -type f -exec chmod 644 {} +
+    echo "[DEBUG] Permissions reset after backup extraction"
+fi
+
 # Generate wp-config.php if it doesn't exist
 if [ ! -f wp-config.php ]; then
-	echo "[DEBUG] wp-config.php not found, generating..."
-	if [ ! -f wp-config-docker.php ]; then
-		echo >&2 "[DEBUG] ERROR: wp-config-docker.php not found in $PWD"
-		exit 1
-	fi
-	cp wp-config-docker.php wp-config.php
-	echo "[DEBUG] Copied wp-config-docker.php to wp-config.php"
+    echo "[DEBUG] wp-config.php not found, generating..."
+    if [ ! -f wp-config-docker.php ]; then
+        echo >&2 "[DEBUG] ERROR: wp-config-docker.php not found in $PWD"
+        exit 1
+    fi
+    cp wp-config-docker.php wp-config.php
+    echo "[DEBUG] Copied wp-config-docker.php to wp-config.php"
 
-	# [DEBUG] Optional: Uncomment for verbose tracing of wp config commands
-	# set -x
+    # Set database details
+    echo "[DEBUG] Setting wp-config.php database parameters..."
+    /usr/local/bin/wp config set DB_NAME "$WORDPRESS_DB_NAME" --allow-root
+    /usr/local/bin/wp config set DB_USER "$WORDPRESS_DB_USER" --allow-root
+    /usr/local/bin/wp config set DB_PASSWORD "$WORDPRESS_DB_PASSWORD" --allow-root
+    /usr/local/bin/wp config set DB_HOST "$WORDPRESS_DB_HOST:3306" --allow-root
+    /usr/local/bin/wp config set TABLE_PREFIX "$WORDPRESS_TABLE_PREFIX" --allow-root
+    /usr/local/bin/wp config set DB_CHARSET "utf8" --allow-root
 
-	# Set database details
-	echo "[DEBUG] Setting wp-config.php database parameters..."
-	/usr/local/bin/wp config set DB_NAME "$WORDPRESS_DB_NAME" --allow-root
-	/usr/local/bin/wp config set DB_USER "$WORDPRESS_DB_USER" --allow-root
-	/usr/local/bin/wp config set DB_PASSWORD "$WORDPRESS_DB_PASSWORD" --allow-root
-	/usr/local/bin/wp config set DB_HOST "$WORDPRESS_DB_HOST:3306" --allow-root
-	/usr/local/bin/wp config set TABLE_PREFIX "$WORDPRESS_TABLE_PREFIX" --allow-root
-	/usr/local/bin/wp config set DB_CHARSET "utf8" --allow-root
+    # Fetch authentication keys dynamically
+    echo "[DEBUG] Fetching WordPress salts..."
+    curl -s https://api.wordpress.org/secret-key/1.1/salt/ | /usr/local/bin/wp config shuffle-salts --allow-root
 
-	# Fetch authentication keys dynamically
-	echo "[DEBUG] Fetching WordPress salts..."
-	curl -s https://api.wordpress.org/secret-key/1.1/salt/ | /usr/local/bin/wp config shuffle-salts --allow-root
-
-	chmod 644 wp-config.php
-	echo "[DEBUG] Set wp-config.php permissions to 644"
-	# set +x  # End verbose tracing if enabled
+    chmod 644 wp-config.php
+    echo "[DEBUG] Set wp-config.php permissions to 644"
 else
-	echo "[DEBUG] wp-config.php already exists, skipping generation"
+    echo "[DEBUG] wp-config.php already exists, skipping generation"
+    echo "[DEBUG] wp-config.php database settings:"
+    grep -E 'DB_NAME|DB_USER|DB_HOST|TABLE_PREFIX' wp-config.php | sed 's/.*define.*'\''$$ .* $$'\''.*/\1/' | while read -r line; do echo "[DEBUG]   $line"; done
+    echo "[DEBUG] Testing database connection from wp-config.php..."
+    if /usr/local/bin/wp db check --allow-root >/dev/null 2>&1; then
+        echo "[DEBUG] Database connection successful"
+    else
+        echo >&2 "[DEBUG] ERROR: Database connection failed; check wp-config.php credentials"
+        exit 1
+    fi
 fi
 
 # Auto-install WordPress if not skipped and DB password is set
 if [ "$WORDPRESS_SKIP_INSTALL" = "no" ] && [ -n "$WORDPRESS_DB_PASSWORD" ]; then
-	echo "[DEBUG] Preparing to install WordPress..."
-	wait_for_db
-	echo "[DEBUG] Running wp core install with URL: $WORDPRESS_SCHEME://$WORDPRESS_HOST"
-	# [DEBUG] Optional: Uncomment for verbose tracing
-	# set -x
-	if /usr/local/bin/wp core install \
-		--url="$WORDPRESS_SCHEME://$WORDPRESS_HOST" \
-		--title="$WORDPRESS_BLOG_NAME" \
-		--admin_user="$WORDPRESS_USERNAME" \
-		--admin_password="$WORDPRESS_PASSWORD" \
-		--admin_email="$WORDPRESS_EMAIL" \
-		--allow-root; then
-		echo "[DEBUG] WordPress installation completed successfully"
-	else
-		echo >&2 "[DEBUG] ERROR: WordPress installation failed; check WP-CLI output"
-	fi
-	# set +x  # End verbose tracing if enabled
+    echo "[DEBUG] Preparing to install WordPress..."
+    wait_for_db
+    echo "[DEBUG] Running wp core install with URL: $WORDPRESS_SCHEME://$WORDPRESS_HOST"
+    if /usr/local/bin/wp core install \
+        --url="$WORDPRESS_SCHEME://$WORDPRESS_HOST" \
+        --title="$WORDPRESS_BLOG_NAME" \
+        --admin_user="$WORDPRESS_USERNAME" \
+        --admin_password="$WORDPRESS_PASSWORD" \
+        --admin_email="$WORDPRESS_EMAIL" \
+        --allow-root; then
+        echo "[DEBUG] WordPress installation completed successfully"
+    else
+        echo >&2 "[DEBUG] ERROR: WordPress installation failed; check WP-CLI output"
+    fi
 else
-	echo "[DEBUG] Skipping WordPress installation (WORDPRESS_SKIP_INSTALL=$WORDPRESS_SKIP_INSTALL, DB_PASSWORD length=${#WORDPRESS_DB_PASSWORD})"
+    echo "[DEBUG] Skipping WordPress installation (WORDPRESS_SKIP_INSTALL=$WORDPRESS_SKIP_INSTALL, DB_PASSWORD length=${#WORDPRESS_DB_PASSWORD})"
 fi
 
 # Fix permissions post-config
-#echo "[DEBUG] Setting permissions on /opt/app-root/src/wordpress-src/"
-#chown -R 1001:0 /opt/app-root/src/wordpress-src/
-#find /opt/app-root/src/wordpress-src/ -type d -exec chmod 755 {} +
-#find /opt/app-root/src/wordpress-src/ -type f -exec chmod 644 {} +
-#echo "[DEBUG] Permissions set: chown 1001:0, dirs 755, files 644"
+echo "[DEBUG] Setting permissions on /opt/app-root/src/wordpress-src/"
+chown -R 1001:0 /opt/app-root/src/wordpress-src/
+find /opt/app-root/src/wordpress-src/ -type d -exec chmod 755 {} +
+find /opt/app-root/src/wordpress-src/ -type f -exec chmod 644 {} +
+echo "[DEBUG] Permissions set: chown 1001:0, dirs 755, files 644"
 
 # [DEBUG] Log final command
-echo "[DEBUG] Executing final command before exiting entrypoint.sh script: $@"
+echo "[DEBUG] Executing command: $@"
 # Verify httpd command
 if [[ "$1" == "/usr/sbin/httpd" ]]; then
-	echo "[DEBUG] Starting Apache in foreground"
-	exec "$@"
+    echo "[DEBUG] Checking Apache configuration..."
+    if /usr/sbin/httpd -t; then
+        echo "[DEBUG] Apache configuration is valid"
+    else
+        echo >&2 "[DEBUG] ERROR: Apache configuration test failed"
+        exit 1
+    fi
+    echo "[DEBUG] Starting Apache in foreground"
+    # Redirect Apache logs to stderr
+    ln -sf /dev/stderr /var/log/httpd/error_log
+    ln -sf /dev/stdout /var/log/httpd/access_log
+    exec "$@"
 else
-	echo >&2 "[DEBUG] ERROR: Expected /usr/sbin/httpd as first argument, got: $1"
-	exit 1
+    echo >&2 "[DEBUG] ERROR: Expected /usr/sbin/httpd as first argument, got: $1"
+    exit 1
 fi
