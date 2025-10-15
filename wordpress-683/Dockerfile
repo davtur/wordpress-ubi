@@ -117,5 +117,5 @@ VOLUME /opt/app-root/src
 USER 1001
 EXPOSE 8080 8443
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+ENTRYPOINT ["entrypoint.sh"]
 CMD ["/usr/sbin/httpd", "-DFOREGROUND"]
