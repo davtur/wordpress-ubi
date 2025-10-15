@@ -75,6 +75,8 @@ wait_for_db() {
 echo "[DEBUG] Current directory contents:"
 ls -al
 
+
+echo "[DEBUG] Check for backup called wordpress-backup.tar and restore if found!!!!:"
 # [DEBUG] Handle backup file if present
 if [ -f wordpress-backup.tar ]; then
     echo "[DEBUG] Extracting WordPress backup..."
@@ -121,6 +123,7 @@ if [ ! -f wp-config.php ]; then
     echo "[DEBUG] Set wp-config.php permissions to 644"
 else
     echo "[DEBUG] wp-config.php already exists, skipping generation"
+	cat wp-config.php | grep -E 'DB_NAME|DB_USER|DB_HOST|TABLE_PREFIX' | sed 's/.*define.*'\''$$ .* $$'\''.*/\1/' | while read -r line; do echo "[DEBUG]   $line"; done
     echo "[DEBUG] wp-config.php database settings:"
     grep -E 'DB_NAME|DB_USER|DB_HOST|TABLE_PREFIX' wp-config.php | sed 's/.*define.*'\''$$ .* $$'\''.*/\1/' | while read -r line; do echo "[DEBUG]   $line"; done
     echo "[DEBUG] Testing database connection from wp-config.php..."
