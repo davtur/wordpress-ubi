@@ -89,6 +89,7 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
         echo 'SSLSessionCache shmcb:/run/httpd/sslcache(512000)'; \
         echo 'SSLSessionCacheTimeout 300'; \
         echo '<VirtualHost *:8443>'; \
+        echo '    ServerName localhost'; \  
         echo '    SSLEngine on'; \
         echo '    SSLCertificateFile /etc/pki/tls/certs/server.crt'; \
         echo '    SSLCertificateKeyFile /etc/pki/tls/private/server.key'; \
