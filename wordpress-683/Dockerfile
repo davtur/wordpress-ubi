@@ -10,7 +10,7 @@ RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
           --enablerepo=ubi-9-appstream-rpms \
           --enablerepo=ubi-9-codeready-builder-rpms \
           --setopt=install_weak_deps=0 \
-          php-gd php-mbstring php-intl php-pecl-zip php-bcmath php-mysqlnd php-xml php-fpmphp-process mod_ssl openssl mariadb && \
+          php-gd php-mbstring php-intl php-pecl-zip php-bcmath php-mysqlnd php-xml php-process mod_ssl openssl mariadb php-fpm && \
     dnf clean all && \
     rm -rf /var/cache/dnf && \
     # [DEBUG] Verify PHP extensions
@@ -20,7 +20,15 @@ RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
     # [DEBUG] Verify mysql client
     mysql --version > /tmp/mysql_version.txt && \
     echo "[DEBUG] MySQL client version:" && \
-    cat /tmp/mysql_version.txt
+    cat /tmp/mysql_version.txt && \
+    # Configure PHP-FPM socket
+    mkdir -p /run/php-fpm && \
+    chown 1001:0 /run/php-fpm && \
+    chmod 755 /run/php-fpm && \
+    sed -i 's|listen = 127.0.0.1:9000|listen = /run/php-fpm/www.sock|' /etc/php-fpm.d/www.conf && \
+    sed -i 's|;listen.owner = nobody|listen.owner = 1001|' /etc/php-fpm.d/www.conf && \
+    sed -i 's|;listen.group = nobody|listen.group = 0|' /etc/php-fpm.d/www.conf && \
+    sed -i 's|;listen.mode = 0660|listen.mode = 0660|' /etc/php-fpm.d/www.conf
 
 # Configure Apache for HTTPS on 8443 and HTTP on 8080, set ServerName
 RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
@@ -102,7 +110,6 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
     } >> /etc/httpd/conf.d/ssl.conf && \
     # Disable mod_heartmonitor to suppress warning
     sed -i '/LoadModule heartmonitor_module/d' /etc/httpd/conf.modules.d/*.conf
-
 
 # Recommended opcache settings for WordPress
 RUN { \
