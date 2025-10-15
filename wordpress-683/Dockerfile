@@ -10,7 +10,7 @@ RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
           --enablerepo=ubi-9-appstream-rpms \
           --enablerepo=ubi-9-codeready-builder-rpms \
           --setopt=install_weak_deps=0 \
-          php-gd php-mbstring php-intl php-pecl-zip php-bcmath php-mysqlnd php-xml php-process mod_ssl openssl mariadb && \
+          php-gd php-mbstring php-intl php-pecl-zip php-bcmath php-mysqlnd php-xml php-fpmphp-process mod_ssl openssl mariadb && \
     dnf clean all && \
     rm -rf /var/cache/dnf && \
     # [DEBUG] Verify PHP extensions
