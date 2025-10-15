@@ -10,13 +10,17 @@ RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
           --enablerepo=ubi-9-appstream-rpms \
           --enablerepo=ubi-9-codeready-builder-rpms \
           --setopt=install_weak_deps=0 \
-          php-gd php-mbstring php-intl php-pecl-zip php-bcmath php-mysqlnd php-xml php-process mod_ssl openssl mariadb&& \
+          php-gd php-mbstring php-intl php-pecl-zip php-bcmath php-mysqlnd php-xml php-process mod_ssl openssl mariadb && \
     dnf clean all && \
     rm -rf /var/cache/dnf && \
     # [DEBUG] Verify PHP extensions
     php -m | grep -E 'curl|fileinfo|gd|mbstring|intl|zip|bcmath|mysqlnd|xml' > /tmp/php_extensions.txt && \
     echo "[DEBUG] Installed PHP extensions:" && \
-    cat /tmp/php_extensions.txt
+    cat /tmp/php_extensions.txt && \
+    # [DEBUG] Verify mysql client
+    mysql --version > /tmp/mysql_version.txt && \
+    echo "[DEBUG] MySQL client version:" && \
+    cat /tmp/mysql_version.txt
 
 # Configure Apache for HTTPS on 8443 and HTTP on 8080, set ServerName
 RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
@@ -55,6 +59,7 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
         echo 'Listen 8443 https'; \
         echo 'Include conf.d/*.conf'; \
         echo 'DirectoryIndex index.php index.html'; \
+        echo 'TypesConfig /etc/mime.types'; \  # Add this line
         echo '<VirtualHost *:8080>'; \
         echo '    DocumentRoot "/opt/app-root/src/wordpress-src"'; \
         echo '    <Directory "/opt/app-root/src/wordpress-src">'; \
@@ -63,6 +68,20 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
         echo '    </Directory>'; \
         echo '</VirtualHost>'; \
     } >> /etc/httpd/conf/httpd.conf && \
+    # Ensure mime.types exists
+    [ -f /etc/mime.types ] && cp /etc/mime.types /etc/httpd/conf/mime.types || echo "mime.types not found, creating minimal version" && \
+    { \
+        echo 'text/html html htm'; \
+        echo 'text/css css'; \
+        echo 'application/javascript js'; \
+        echo 'image/jpeg jpeg jpg'; \
+        echo 'image/png png'; \
+        echo 'image/gif gif'; \
+        echo 'text/plain txt'; \
+        echo 'application/php php'; \
+    } > /etc/httpd/conf/mime.types && \
+    chown 1001:0 /etc/httpd/conf/mime.types && \
+    chmod 644 /etc/httpd/conf/mime.types && \
     # Clear default conf.d files except php.conf to avoid conflicts
     find /etc/httpd/conf.d/ -type f -not -name 'php.conf' -delete && \
     # Create HTTPS VirtualHost configuration
@@ -82,6 +101,7 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
     } >> /etc/httpd/conf.d/ssl.conf && \
     # Disable mod_heartmonitor to suppress warning
     sed -i '/LoadModule heartmonitor_module/d' /etc/httpd/conf.modules.d/*.conf
+
 
 # Recommended opcache settings for WordPress
 RUN { \
