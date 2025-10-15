@@ -10,9 +10,14 @@ RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
           --enablerepo=ubi-9-appstream-rpms \
           --enablerepo=ubi-9-codeready-builder-rpms \
           --setopt=install_weak_deps=0 php-gd php-mbstring php-intl \
-          php-pecl-zip php-bcmath php-mysqlnd php-xml php-process mod_ssl openssl && \
-          dnf clean all && \
-          rm -rf /var/cache/dnf
+          php-pecl-zip php-bcmath php-mysqlnd php-xml php-process mod_ssl openssl \
+          php-pecl-imagick && \
+    dnf clean all && \
+    rm -rf /var/cache/dnf && \
+    # [DEBUG] Verify PHP extensions
+    php -m | grep -E 'curl|fileinfo|gd|mbstring|intl|zip|bcmath|mysqlnd|xml|imagick' > /tmp/php_extensions.txt && \
+    echo "[DEBUG] Installed PHP extensions:" && \
+    cat /tmp/php_extensions.txt
 
 # Configure Apache for HTTPS on 8443 and HTTP on 8080, set ServerName
 RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
@@ -100,6 +105,11 @@ RUN set -eux; \
     chown -R 1001:0 /opt/app-root/src/wordpress-src; \
     mkdir -p /opt/app-root/src/wordpress-src/wp-content/upgrades; \
     chown -R 1001:0 /opt/app-root/src/wordpress-src/wp-content/upgrades
+
+# Install WP-CLI
+RUN curl -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && \
+    chmod +x /usr/local/bin/wp && \
+    chown 1001:0 /usr/local/bin/wp
 
 # Copy entrypoint and config template
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
