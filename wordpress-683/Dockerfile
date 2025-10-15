@@ -6,15 +6,20 @@ LABEL maintainer="David Turner" \
 USER root
 
 # Enable UBI 9 repositories and install dependencies
-RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
+# Enable UBI 9 repositories and install dependencies (including EPEL for ImageMagick)
+RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
+    dnf install -y --enablerepo=ubi-9-baseos-rpms \
           --enablerepo=ubi-9-appstream-rpms \
           --enablerepo=ubi-9-codeready-builder-rpms \
-          --setopt=install_weak_deps=0 php-gd php-mbstring php-intl \
-          php-pecl-zip php-bcmath php-mysqlnd php-xml php-process mod_ssl openssl \
-          php-pecl-imagick && \
+          --enablerepo=epel \
+          --setopt=install_weak_deps=0 \
+          ImageMagick ImageMagick-devel \
+          php-gd php-mbstring php-intl \
+          php-pecl-zip php-bcmath php-mysqlnd php-xml php-process \
+          php-pecl-imagick mod_ssl openssl && \
     dnf clean all && \
     rm -rf /var/cache/dnf && \
-    # [DEBUG] Verify PHP extensions
+    # [DEBUG] Verify PHP extensions (including imagick)
     php -m | grep -E 'curl|fileinfo|gd|mbstring|intl|zip|bcmath|mysqlnd|xml|imagick' > /tmp/php_extensions.txt && \
     echo "[DEBUG] Installed PHP extensions:" && \
     cat /tmp/php_extensions.txt
