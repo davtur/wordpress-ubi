@@ -21,10 +21,12 @@ RUN dnf install -y --enablerepo=ubi-9-baseos-rpms \
     mysql --version > /tmp/mysql_version.txt && \
     echo "[DEBUG] MySQL client version:" && \
     cat /tmp/mysql_version.txt && \
-    # Configure PHP-FPM socket
-    mkdir -p /run/php-fpm && \
-    chown 1001:0 /run/php-fpm && \
-    chmod 755 /run/php-fpm && \
+    # Configure PHP-FPM socket and log directory
+    mkdir -p /run/php-fpm /var/log/php-fpm && \
+    chown 1001:0 /run/php-fpm /var/log/php-fpm && \
+    chmod 775 /run/php-fpm /var/log/php-fpm && \
+    # Set SELinux context for OpenShift compatibility
+    chcon -t container_file_t /run/php-fpm /var/log/php-fpm && \
     sed -i 's|listen = 127.0.0.1:9000|listen = /run/php-fpm/www.sock|' /etc/php-fpm.d/www.conf && \
     sed -i 's|;listen.owner = nobody|listen.owner = 1001|' /etc/php-fpm.d/www.conf && \
     sed -i 's|;listen.group = nobody|listen.group = 0|' /etc/php-fpm.d/www.conf && \
@@ -90,8 +92,8 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private /var/log/httpd && \
     } > /etc/httpd/conf/mime.types && \
     chown 1001:0 /etc/httpd/conf/mime.types && \
     chmod 644 /etc/httpd/conf/mime.types && \
-    # Clear default conf.d files except php.conf to avoid conflicts
-    find /etc/httpd/conf.d/ -type f -not -name 'php.conf' -delete && \
+    # Clear default conf.d files to avoid conflicts
+    find /etc/httpd/conf.d/ -type f -delete && \
     # Create HTTPS VirtualHost configuration
     { \
         echo 'SSLSessionCache shmcb:/run/httpd/sslcache(512000)'; \
