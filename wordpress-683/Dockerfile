@@ -127,4 +127,4 @@ USER 1001
 EXPOSE 8080 8443
 
 ENTRYPOINT ["entrypoint.sh"]
-CMD ["/usr/sbin/httpd", "-DFOREGROUND"]
+CMD ["/usr/sbin/httpd"]
